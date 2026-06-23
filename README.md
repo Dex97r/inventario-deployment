@@ -1,4 +1,4 @@
-# 🚀 Despliegue Unificado del Sistema de Inventario - Docker Compose
+# Despliegue Unificado del Sistema de Inventario - Docker Compose
 
 Este repositorio contiene la configuración completa de la capa de despliegue para integrar y poner en producción las aplicaciones de gestión de activos tecnológicos en una arquitectura desacoplada basada en microservicios y contenedores.
 

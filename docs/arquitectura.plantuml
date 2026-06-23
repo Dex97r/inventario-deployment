@@ -1,0 +1,60 @@
+@startuml Arquitectura_Sistema
+
+' Configuración estética y visual
+skinparam BackgroundColor #FDFDFD
+skinparam RoundCorner 10
+skinparam Shadowing true
+skinparam DatabaseBackgroundColor #E8F5E9
+skinparam DatabaseBorderColor #2E7D32
+skinparam NodeBackgroundColor #ECEFF1
+skinparam NodeBorderColor #37474F
+
+skinparam actor {
+    BackgroundColor #E3F2FD
+    BorderColor #1565C0
+}
+
+skinparam component {
+    BackgroundColor #FFF9C4
+    BorderColor #FBC02D
+}
+
+title Arquitectura Desacoplada del Sistema de Inventario (Docker Compose)
+
+actor "Usuario / Navegador" as user
+
+node "Red Docker: inventario_network" as network {
+    
+    node "Contenedor: webapp" as container_webapp {
+        component "Flask WebApp\n(Puerto Interno: 80)" as flask_app
+    }
+    
+    node "Contenedor: api_service" as container_api {
+        component "FastAPI API\n(Puerto Interno: 8000)" as fastapi_app
+    }
+    
+    database "Contenedor: db_webapp" as container_db_webapp {
+        folder "db_webapp_data\n(Volumen Persistente)" as vol_webapp
+        database "webapp_db\n(PostgreSQL 15)" as pg_webapp
+    }
+    
+    database "Contenedor: db_api" as container_db_api {
+        folder "db_api_data\n(Volumen Persistente)" as vol_api
+        database "api_db\n(PostgreSQL 15)" as pg_api
+    }
+}
+
+' Comunicaciones Externas
+user --> flask_app : HTTP / Acceso Web\n[[http://localhost Port 80]]
+user --> fastapi_app : HTTP / Documentación Swagger\n[[http://localhost:8000/docs Port 8000]]
+
+' Comunicaciones Internas
+flask_app --> fastapi_app : HTTP / Consume REST API\n[[http://api_service:8000]]
+flask_app --> pg_webapp : TCP/IP / Conexión de Usuarios\n(db_webapp:5432)
+fastapi_app --> pg_api : TCP/IP / Conexión de Equipos\n(db_api:5432)
+
+' Persistencia
+pg_webapp ..> vol_webapp : Almacenado en
+pg_api ..> vol_api : Almacenado en
+
+@enduml

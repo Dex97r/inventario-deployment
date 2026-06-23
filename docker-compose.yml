@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # Contenedor 2: db_webapp (Base de datos de usuarios para la WebApp)
+  db_webapp:
+    image: postgres:15-alpine
+    container_name: db_webapp
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_WEBAPP_DB:-webapp_db}
+      POSTGRES_USER: ${DB_WEBAPP_USER:-webapp_user}
+      POSTGRES_PASSWORD: ${DB_WEBAPP_PASS:-webapp_pass}
+    volumes:
+      - db_webapp_data:/var/lib/postgresql/data
+    networks:
+      - inventario_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # Contenedor 4: db_api (Base de datos de equipos para la API)
+  db_api:
+    image: postgres:15-alpine
+    container_name: db_api
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_API_DB:-api_db}
+      POSTGRES_USER: ${DB_API_USER:-api_user}
+      POSTGRES_PASSWORD: ${DB_API_PASS:-api_pass}
+    volumes:
+      - db_api_data:/var/lib/postgresql/data
+    networks:
+      - inventario_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # Contenedor 3: api_service (API REST en FastAPI)
+  api_service:
+    build:
+      context: ../inventario-api
+      dockerfile: Dockerfile
+    container_name: api_service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: ${API_DATABASE_URL:-postgresql://api_user:api_pass@db_api:5432/api_db}
+    networks:
+      - inventario_network
+    depends_on:
+      db_api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Contenedor 1: webapp (Frontend/Interfaz Web en Flask)
+  webapp:
+    build:
+      context: ../inventario-webapp
+      dockerfile: Dockerfile
+    container_name: webapp
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      DATABASE_URL: ${WEBAPP_DATABASE_URL:-postgresql://webapp_user:webapp_pass@db_webapp:5432/webapp_db}
+      API_URL: ${WEBAPP_API_URL:-http://api_service:8000}
+      SECRET_KEY: ${WEBAPP_SECRET_KEY:-clave_super_secreta_academica}
+    networks:
+      - inventario_network
+    depends_on:
+      db_webapp:
+        condition: service_healthy
+      api_service:
+        condition: service_healthy
+
+networks:
+  inventario_network:
+    name: inventario_network
+    driver: bridge
+
+volumes:
+  db_webapp_data:
+    name: db_webapp_data
+  db_api_data:
+    name: db_api_data
